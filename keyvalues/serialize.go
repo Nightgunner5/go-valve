@@ -6,11 +6,11 @@ import (
 	"strings"
 )
 
-func (kv *KeyValues) WriteTo(w io.Writer) (n int, err error) {
+func (kv *KeyValues) WriteTo(w io.Writer) (n int64, err error) {
 	for i := range kv.complexValue {
 		var c int
 		c, err = kv.complexValue[i].writeIndented(w, 0)
-		n += c
+		n += int64(c)
 		if err != nil {
 			return
 		}
@@ -58,3 +58,5 @@ func (kv *KeyValues) writeIndented(w io.Writer, indent int) (n int, err error) {
 	}
 	return
 }
+
+var _ io.WriterTo = new(KeyValues)

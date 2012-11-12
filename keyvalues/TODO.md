@@ -1,0 +1,3 @@
+- RemoveSubKey
+- comment parsing
+- conditionals (like [!$WIN32])

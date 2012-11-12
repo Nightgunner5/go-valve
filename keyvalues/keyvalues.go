@@ -139,3 +139,19 @@ func (kv *KeyValues) NewSubKey(name string) *KeyValues {
 	kv.complexValue = append(kv.complexValue, KeyValues{name: name})
 	return &kv.complexValue[len(kv.complexValue)-1]
 }
+
+func (kv *KeyValues) Each() <-chan *KeyValues {
+	ch := make(chan *KeyValues)
+	if kv.complexValue == nil {
+		// Skip spawning the goroutine to do nothing
+		close(ch)
+		return ch
+	}
+	go func() {
+		for i := range kv.complexValue {
+			ch <- &kv.complexValue[i]
+		}
+		close(ch)
+	}()
+	return ch
+}
