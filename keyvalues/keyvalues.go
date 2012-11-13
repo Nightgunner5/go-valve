@@ -16,6 +16,8 @@ func (kv KeyValues) Name() string {
 	return kv.name
 }
 
+// Returns the string value of this node. If the node is nonexistent or complex
+// (one that has subnodes) the default (def) will be returned.
 func (kv *KeyValues) String(def string) string {
 	if kv == nil || kv.complexValue != nil {
 		return def
@@ -23,6 +25,8 @@ func (kv *KeyValues) String(def string) string {
 	return kv.simpleValue
 }
 
+// Returns the integer value of this node. If the node is nonexistent, complex,
+// or unable to be parsed as an integer, the default (def) will be returned.
 func (kv *KeyValues) Int(def int64) int64 {
 	if kv == nil || kv.complexValue != nil {
 		return def
@@ -33,6 +37,8 @@ func (kv *KeyValues) Int(def int64) int64 {
 	return def
 }
 
+// Returns the uint64 value of this node. If the node is nonexistent, complex,
+// or unable to be parsed as a uint64, the default (def) will be returned.
 func (kv *KeyValues) Uint64(def uint64) uint64 {
 	if kv == nil || kv.complexValue != nil {
 		return def
@@ -43,6 +49,8 @@ func (kv *KeyValues) Uint64(def uint64) uint64 {
 	return def
 }
 
+// Returns the floating-point value of this node. If the node is nonexistent,
+// complex, or unable to be parsed as a float, the default (def) will be returned.
 func (kv *KeyValues) Float(def float64) float64 {
 	if kv == nil || kv.complexValue != nil {
 		return def
@@ -53,6 +61,8 @@ func (kv *KeyValues) Float(def float64) float64 {
 	return def
 }
 
+// Returns the boolean value of this node. The boolean value is equivelent to
+// false iff the node has the integer value 0.
 func (kv *KeyValues) Bool(def bool) bool {
 	if def {
 		return kv.Int(1) != 0
@@ -60,6 +70,8 @@ func (kv *KeyValues) Bool(def bool) bool {
 	return kv.Int(0) != 0
 }
 
+// Sets the value of this node. If this node is complex or nonexistent, this
+// method will panic.
 func (kv *KeyValues) SetValueString(v string) {
 	if kv == nil {
 		panic("SetValueString on a nil *KeyValues")
@@ -71,6 +83,8 @@ func (kv *KeyValues) SetValueString(v string) {
 	kv.simpleValue = v
 }
 
+// Sets the value of this node. If this node is complex or nonexistent, this
+// method will panic. The integer will be formatted in base 10.
 func (kv *KeyValues) SetValueInt(v int64) {
 	if kv == nil {
 		panic("SetValueInt on a nil *KeyValues")
@@ -82,6 +96,9 @@ func (kv *KeyValues) SetValueInt(v int64) {
 	kv.simpleValue = fmt.Sprint(v)
 }
 
+// Sets the value of this node. If this node is complex or nonexistent, this
+// method will panic. The uint64 will be formatted as a hexadecimal number
+// prefixed by "0x".
 func (kv *KeyValues) SetValueUint64(v uint64) {
 	if kv == nil {
 		panic("SetValueUint64 on a nil *KeyValues")
@@ -93,6 +110,8 @@ func (kv *KeyValues) SetValueUint64(v uint64) {
 	kv.simpleValue = fmt.Sprintf("0x%x", v)
 }
 
+// Sets the value of this node. If this node is complex or nonexistent, this
+// method will panic.
 func (kv *KeyValues) SetValueFloat(v float64) {
 	if kv == nil {
 		panic("SetValueFloat on a nil *KeyValues")
@@ -104,6 +123,9 @@ func (kv *KeyValues) SetValueFloat(v float64) {
 	kv.simpleValue = fmt.Sprint(v)
 }
 
+// Sets the value of this node. If this node is complex or nonexistent, this
+// method will panic. The value of the node will be "1" if v is true and "0"
+// otherwise.
 func (kv *KeyValues) SetValueBool(v bool) {
 	if kv == nil {
 		panic("SetValueBool on a nil *KeyValues")
@@ -119,6 +141,8 @@ func (kv *KeyValues) SetValueBool(v bool) {
 	}
 }
 
+// Returns the first subkey (if any) that has a name equal to the argument under
+// Unicode case-folding.
 func (kv *KeyValues) SubKey(name string) *KeyValues {
 	if kv == nil || kv.complexValue == nil {
 		return nil
@@ -131,6 +155,8 @@ func (kv *KeyValues) SubKey(name string) *KeyValues {
 	return nil
 }
 
+// Creates, appends, and returns a new subkey. If the current node (the subkey's
+// parent) is nil, this method will panic.
 func (kv *KeyValues) NewSubKey(name string) *KeyValues {
 	if kv == nil {
 		panic("Call to NewSubKey on a nil *KeyValues")
@@ -140,7 +166,14 @@ func (kv *KeyValues) NewSubKey(name string) *KeyValues {
 	return &kv.complexValue[len(kv.complexValue)-1]
 }
 
+// Appends the given child node to this node. If the current node (the subkey's
+// parent) is nil, this method will panic. This method is a no-op on a nil child
+// if the parent is valid.
 func (kv *KeyValues) Append(child *KeyValues) {
+	if kv == nil {
+		panic("Call to Append on a nil *KeyValues")
+	}
+
 	if child == nil {
 		return
 	}
@@ -148,10 +181,20 @@ func (kv *KeyValues) Append(child *KeyValues) {
 	kv.complexValue = append(kv.complexValue, *child)
 }
 
+// Returns a readable channel that will recieve each subkey of this node by
+// reference. The channel is closed after the last node is sent. The behavior
+// of this method if this node is modified while the channel is open.
+//
+// Example:
+//      for subkey := range node.Each() {
 func (kv *KeyValues) Each() <-chan *KeyValues {
+	if kv == nil {
+		panic("Call to Each on a nil *KeyValues")
+	}
+
 	ch := make(chan *KeyValues)
 	if kv.complexValue == nil {
-		// Skip spawning the goroutine to do nothing
+		// Skip spawning an extra goroutine and just close the channel.
 		close(ch)
 		return ch
 	}

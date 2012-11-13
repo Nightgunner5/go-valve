@@ -49,6 +49,47 @@ func readString(in *bufio.Reader) (s string, n int64, err error) {
 
 	if r == '"' {
 		quoted = true
+	} else if r == '/' {
+		r = rr()
+		var (
+			slice []byte
+			c     int64
+		)
+		switch r {
+		case '/':
+			slice, err = in.ReadSlice('\n')
+			n += int64(len(slice))
+			if err != nil {
+				return
+			}
+			c, err = consumeSpaces(in)
+			n += c
+			if err != nil {
+				return
+			}
+			s, c, err = readString(in)
+			n += c
+			return
+		case '*':
+			for r != '/' && err == nil {
+				slice, err = in.ReadSlice('*')
+				n += int64(len(slice))
+				r = rr()
+			}
+			if err != nil {
+				return
+			}
+			c, err = consumeSpaces(in)
+			n += c
+			if err != nil {
+				return
+			}
+			s, c, err = readString(in)
+			n += c
+			return
+		default:
+			buf = append(buf, '/', r)
+		}
 	} else {
 		buf = append(buf, r)
 	}
