@@ -140,6 +140,14 @@ func (kv *KeyValues) NewSubKey(name string) *KeyValues {
 	return &kv.complexValue[len(kv.complexValue)-1]
 }
 
+func (kv *KeyValues) Append(child *KeyValues) {
+	if child == nil {
+		return
+	}
+
+	kv.complexValue = append(kv.complexValue, *child)
+}
+
 func (kv *KeyValues) Each() <-chan *KeyValues {
 	ch := make(chan *KeyValues)
 	if kv.complexValue == nil {
