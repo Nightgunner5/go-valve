@@ -21,7 +21,7 @@ func consumeSpaces(in *bufio.Reader) (n int64, err error) {
 	return
 }
 
-func readString(in *bufio.Reader) (s string, n int64, err error) {
+func readString(in *bufio.Reader) (s string, n int64, err error, special bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -67,7 +67,7 @@ func readString(in *bufio.Reader) (s string, n int64, err error) {
 			if err != nil {
 				return
 			}
-			s, c, err = readString(in)
+			s, c, err, special = readString(in)
 			n += c
 			return
 		case '*':
@@ -84,12 +84,16 @@ func readString(in *bufio.Reader) (s string, n int64, err error) {
 			if err != nil {
 				return
 			}
-			s, c, err = readString(in)
+			s, c, err, special = readString(in)
 			n += c
 			return
 		default:
 			buf = append(buf, '/', r)
 		}
+	} else if r == '{' || r == '}' {
+		s = string([]rune{r})
+		special = true
+		return
 	} else {
 		buf = append(buf, r)
 	}
@@ -169,41 +173,33 @@ func (kv *KeyValues) ReadFrom(r io.Reader) (n int64, err error) {
 			return
 		}
 
-		var r rune
-		var c_ int
-		r, c_, err = in.ReadRune()
-		n += int64(c_)
+		var key string
+		var special bool
+		key, c, err, special = readString(in)
+		n += c
 		if err != nil {
 			if err == io.EOF && s.pop() == kv {
 				err = nil
 			}
 			return
 		}
-		switch r {
-		case '{':
-			err = errors.New("Unexpected '{': expecting '}' or a key")
-			return
-		case '}':
-			s.pop()
-			if len(s) == 0 {
-				err = errors.New("Unexpected '}': expecting a key")
+		if special {
+			switch key {
+			case "{":
+				err = errors.New("Unexpected '{': expecting '}' or a key")
 				return
+			case "}":
+				s.pop()
+				if len(s) == 0 {
+					err = errors.New("Unexpected '}': expecting a key")
+					return
+				}
+				continue
+			default:
+				// TODO: conditionals
 			}
-			continue
-		default:
-			err = in.UnreadRune()
-			if err != nil {
-				return
-			}
-			n -= int64(c_)
 		}
 
-		var key string
-		key, c, err = readString(in)
-		n += c
-		if err != nil {
-			return
-		}
 		s.push(s.peek().NewSubKey(key))
 
 		c, err = consumeSpaces(in)
@@ -212,31 +208,25 @@ func (kv *KeyValues) ReadFrom(r io.Reader) (n int64, err error) {
 			return
 		}
 
-		r, c_, err = in.ReadRune()
-		n += int64(c_)
-		if err != nil {
-			return
-		}
-		switch r {
-		case '{':
-			continue
-		case '}':
-			err = errors.New("Unexpected '}': expecting '{' or a value")
-			return
-		default:
-			err = in.UnreadRune()
-			if err != nil {
-				return
-			}
-			n -= int64(c_)
-		}
-
 		var value string
-		value, c, err = readString(in)
+		value, c, err, special = readString(in)
 		n += c
 		if err != nil {
 			return
 		}
+		if special {
+			switch value {
+			case "{":
+				continue
+			case "}":
+				err = errors.New("Unexpected '}': expecting '{' or a value")
+				return
+			default:
+				err = errors.New("Unexpected conditional: expecting '{' or a value")
+				return
+			}
+		}
+
 		s.pop().SetValueString(value)
 	}
 
